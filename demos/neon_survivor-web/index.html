@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, minimum-scale=1, maximum-scale=1">
+    <title>Teal++ GameKit</title>
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        background: #101418;
+        overflow: hidden;
+      }
+      #canvas, #loadingCanvas {
+        display: block;
+        position: absolute;
+        top: 0; left: 0;
+        width: 100%;
+        height: 100%;
+        border: 0;
+        outline: 0;
+      }
+      #canvas { visibility: hidden; }
+      #loadingCanvas { background: #101418; }
+    </style>
+  </head>
+  <body>
+    <canvas id="loadingCanvas" oncontextmenu="event.preventDefault()"></canvas>
+    <canvas id="canvas" oncontextmenu="event.preventDefault()"></canvas>
+
+    <script>
+      // ===== Simple loading overlay =====
+      var loadingContext = document.getElementById('loadingCanvas').getContext('2d');
+      function drawLoadingText(text) {
+        var c = loadingContext.canvas;
+        c.width  = window.innerWidth;
+        c.height = window.innerHeight;
+        loadingContext.fillStyle = '#101418';
+        loadingContext.fillRect(0, 0, c.width, c.height);
+        loadingContext.fillStyle = '#5fbf5f';
+        loadingContext.font = 'bold 22px sans-serif';
+        loadingContext.textAlign = 'center';
+        loadingContext.fillText('Teal++', c.width / 2, c.height / 2 - 20);
+        loadingContext.fillStyle = '#aab4c0';
+        loadingContext.font = '16px sans-serif';
+        loadingContext.fillText(text || 'Loading…', c.width / 2, c.height / 2 + 12);
+      }
+
+      // ===== Focus handling =====
+      window.onload = function () { window.focus(); };
+      window.onclick = function () { window.focus(); };
+
+      // Prevent arrow/space scrolling while playing
+      window.addEventListener('keydown', function (e) {
+        if ([32, 37, 38, 39, 40].indexOf(e.keyCode) > -1) e.preventDefault();
+      }, false);
+
+      // ===== Resize canvas to fill the window =====
+      function fitCanvas() {
+        var c = document.getElementById('canvas');
+        c.width  = window.innerWidth;
+        c.height = window.innerHeight;
+      }
+      window.addEventListener('resize', fitCanvas);
+      fitCanvas();
+
+      // ===== Emscripten module config =====
+      var Module = {
+        arguments: ['./game.love'],
+        INITIAL_MEMORY: 20000000,
+        printErr: console.error.bind(console),
+        canvas: (function () {
+          var canvas = document.getElementById('canvas');
+          canvas.addEventListener('webglcontextlost', function (e) {
+            console.error('WebGL context lost — reload the page.');
+            e.preventDefault();
+          }, false);
+          return canvas;
+        })(),
+        setStatus: function (text) {
+          if (text) {
+            drawLoadingText(text);
+          } else if (Module.remainingDependencies === 0) {
+            document.getElementById('loadingCanvas').style.display = 'none';
+            document.getElementById('canvas').style.visibility = 'visible';
+          }
+        },
+        totalDependencies: 0,
+        remainingDependencies: 0,
+        monitorRunDependencies: function (left) {
+          this.remainingDependencies = left;
+          this.totalDependencies = Math.max(this.totalDependencies, left);
+          Module.setStatus(left
+            ? 'Preparing… (' + (this.totalDependencies - left) + '/' + this.totalDependencies + ')'
+            : 'All downloads complete.');
+        }
+      };
+      Module.setStatus('Downloading…');
+      window.onerror = function () {
+        Module.setStatus('Exception thrown, see JavaScript console.');
+        Module.setStatus = function (text) {
+          if (text) Module.printErr('[post-exception status] ' + text);
+        };
+      };
+
+      var applicationLoad = function () {
+        // Request fullscreen, then start LÖVE.
+        var canvas = document.getElementById('canvas');
+        var goFS = canvas.requestFullScreen
+                || canvas.webkitRequestFullScreen
+                || canvas.mozRequestFullScreen;
+        try { if (goFS) goFS.call(canvas); } catch (_) { /* user gesture may be required */ }
+        Love(Module);
+      };
+    </script>
+
+    <script type="text/javascript" src="game.js"></script>
+    <script async type="text/javascript" src="love.js" onload="applicationLoad()"></script>
+  </body>
+</html>

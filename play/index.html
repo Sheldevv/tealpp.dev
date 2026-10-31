@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Play Teal++ Games</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --error: #ff7b72;
+    --success: #3fb950;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  header h1 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0;
+    color: var(--accent);
+  }
+  header .subtitle { font-size: 0.8rem; color: var(--muted); }
+  header .spacer { flex: 1; }
+  header select {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 0.4rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-family: inherit;
+  }
+  header button {
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  header button:hover { opacity: 0.9; }
+  header button:disabled { opacity: 0.4; cursor: wait; }
+  header a { color: var(--muted); font-size: 0.85rem; text-decoration: none; }
+  header a:hover { color: var(--accent); }
+
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: auto;
+    padding: 1rem;
+  }
+  iframe {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #000;
+    width: 100%;
+    height: 100%;
+    max-width: 1280px;
+  }
+  #empty {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.9rem;
+    line-height: 1.7;
+    max-width: 620px;
+  }
+  #empty h2 {
+    color: var(--text);
+    font-weight: 600;
+    font-size: 1.25rem;
+    margin: 0 0 0.5rem;
+  }
+  #empty code {
+    background: var(--panel);
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+    font-size: 0.85em;
+  }
+  #empty .err {
+    color: var(--error);
+    margin-top: 1rem;
+    font-family: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
+    font-size: 0.8rem;
+    text-align: left;
+    white-space: pre-wrap;
+  }
+  #empty .ok {
+    color: var(--success);
+    margin-top: 1rem;
+    font-size: 0.8rem;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Play Teal++ Games</h1>
+  <span class="subtitle">love.js · no editing</span>
+  <div class="spacer"></div>
+  <a href="../try/">Try Teal++ →</a>
+  <select id="demo-select">
+    <option value="">— pick a demo —</option>
+    <option value="hello">Hello</option>
+    <!--<option value="showcase">Showcase</option>-->
+    <option value="neon-survivor">Neon Survivor</option>
+  </select>
+  <button id="load-btn">Load ▶</button>
+</header>
+
+<main>
+  <div id="empty">
+    <h2>Pick a demo</h2>
+    <p>Teal++ games compiled to <code>.love</code>, played in the browser via love.js.</p>
+    <p>These are built by <code>tpp package --target web</code>, which produces a
+       <code>&lt;name&gt;_web/</code> folder next to each <code>.love</code> file.</p>
+    <p id="err" class="err"></p>
+    <p id="ok" class="ok"></p>
+  </div>
+  <iframe id="frame" style="display:none;" sandbox="allow-scripts allow-same-origin allow-pointer-lock"></iframe>
+</main>
+
+<script>
+// NOTE: the actual folders on disk use UNDERSCORES
+// (e.g. neon_survivor-web). Keep these in sync with `ls demos/`.
+const DEMOS = {
+  "hello":        "../demos/hello-web/",
+  //"showcase":     "../demos/showcase_web/",
+  "neon-survivor":"../demos/neon_survivor-web/",
+};
+
+const frame = document.getElementById("frame");
+const empty = document.getElementById("empty");
+const errEl = document.getElementById("err");
+const okEl = document.getElementById("ok");
+const select = document.getElementById("demo-select");
+const loadBtn = document.getElementById("load-btn");
+
+loadBtn.addEventListener("click", () => {
+  const key = select.value;
+  if (!key) return;
+
+  const path = DEMOS[key];
+  if (!path) {
+    errEl.textContent = `No path configured for "${key}".`;
+    return;
+  }
+
+  errEl.textContent = "";
+  okEl.textContent = "";
+  loadBtn.disabled = true;
+
+  // Preflight: confirm the web build exists before swapping the iframe
+  // in, so we don't dump a raw 404 into the game frame.
+  // Skip the check on file:// where HEAD fetches always fail.
+  const preflight = location.protocol === "file:"
+    ? Promise.resolve(true)
+    : fetch(path, { method: "HEAD" }).then((res) => res.ok);
+
+  preflight
+    .then((exists) => {
+      if (!exists) {
+        throw new Error(
+          `Missing web build: ${path}\n\n` +
+          `Build it by running:\n` +
+          `  tpp package --target web\n` +
+          `from the demo's source folder, or run the same build step\n` +
+          `you used to produce neon_survivor-web/.`
+        );
+      }
+      showFrame(path);
+    })
+    .catch((e) => {
+      errEl.textContent = e.message;
+      loadBtn.disabled = false;
+    });
+});
+
+function showFrame(path) {
+  empty.style.display = "none";
+  frame.style.display = "block";
+  frame.src = path;
+  frame.addEventListener(
+    "load",
+    () => {
+      loadBtn.disabled = false;
+      okEl.textContent = "";
+    },
+    { once: true }
+  );
+}
+</script>
+</body>
+</html>

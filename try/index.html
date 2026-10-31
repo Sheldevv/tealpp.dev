@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Try Teal++</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --error: #ff7b72;
+    --success: #3fb950;
+
+    /* Syntax colors — GitHub-dark-ish */
+    --syn-comment: #8b949e;
+    --syn-string:  #a5d6ff;
+    --syn-number:  #79c0ff;
+    --syn-keyword: #ff7b72;
+    --syn-type:    #ffa657;
+    --syn-builtin: #d2a8ff;
+    --syn-fn:      #d2a8ff;
+    --syn-punct:   #c9d1d9;
+    --syn-ident:   #c9d1d9;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  header h1 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0;
+    color: var(--accent);
+  }
+  header .subtitle {
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+  header .spacer { flex: 1; }
+  header button {
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  header button:hover { opacity: 0.9; }
+  header button:disabled { opacity: 0.4; cursor: wait; }
+  header a {
+    color: var(--muted);
+    font-size: 0.85rem;
+    text-decoration: none;
+  }
+  header a:hover { color: var(--accent); }
+
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-height: 0;
+  }
+  .pane {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border-right: 1px solid var(--border);
+  }
+  .pane:last-child { border-right: none; }
+  .pane-header {
+    padding: 0.5rem 1rem;
+    font-size: 0.75rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+  }
+
+  /* ---- Code editor: textarea over highlighted <pre> ---- */
+  .editor {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    background: var(--bg);
+  }
+  .editor textarea,
+  .editor pre {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    padding: 1rem;
+    border: none;
+    outline: none;
+    font-family: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
+    font-size: 0.85rem;
+    line-height: 1.55;
+    tab-size: 4;
+    white-space: pre;
+    overflow: auto;
+  }
+  .editor pre {
+    pointer-events: none;
+    color: var(--text);
+    z-index: 0;
+  }
+  .editor pre code {
+    font: inherit;
+  }
+  .editor textarea {
+    z-index: 1;
+    background: transparent;
+    color: transparent;
+    caret-color: var(--text);
+    resize: none;
+  }
+  .editor textarea::selection {
+    background: rgba(88, 166, 255, 0.28);
+  }
+  .editor textarea::-moz-selection {
+    background: rgba(88, 166, 255, 0.28);
+  }
+
+  /* Token colors */
+  .tok-comment { color: var(--syn-comment); font-style: italic; }
+  .tok-string  { color: var(--syn-string); }
+  .tok-number  { color: var(--syn-number); }
+  .tok-keyword { color: var(--syn-keyword); }
+  .tok-type    { color: var(--syn-type); }
+  .tok-builtin { color: var(--syn-builtin); }
+  .tok-fn      { color: var(--syn-fn); }
+  .tok-punct   { color: var(--syn-punct); }
+
+  /* Output pane (unchanged) */
+  .pane > pre#output {
+    flex: 1;
+    margin: 0;
+    padding: 1rem;
+    background: var(--bg);
+    color: var(--text);
+    font-family: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
+    font-size: 0.85rem;
+    line-height: 1.55;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  pre.output-error { color: var(--error); }
+  pre.output-success { color: var(--text); }
+
+  .status {
+    padding: 0.35rem 1rem;
+    font-size: 0.75rem;
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+  }
+  .status.ok { color: var(--success); }
+  .status.err { color: var(--error); }
+
+  @media (max-width: 700px) {
+    main { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+    .pane { border-right: none; border-bottom: 1px solid var(--border); }
+  }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/fengari-web@0.1.4/dist/fengari-web.js"></script>
+</head>
+<body>
+
+<header>
+  <h1>Try Teal++</h1>
+  <span class="subtitle">Fengari · text output only</span>
+  <div class="spacer"></div>
+  <a href="../play/">Play a game →</a>
+  <button id="run-btn" disabled>Run ▶</button>
+</header>
+
+<main>
+  <div class="pane">
+    <div class="pane-header">main.tpp</div>
+    <div class="editor">
+      <pre id="highlight" aria-hidden="true"><code id="highlight-code"></code></pre>
+      <textarea id="source" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"></textarea>
+    </div>
+    <div class="status" id="status">Loading compiler…</div>
+  </div>
+  <div class="pane">
+    <div class="pane-header">Output</div>
+    <pre id="output"></pre>
+  </div>
+</main>
+
+<script>
+const SAMPLE = `-- Teal++ supports real type annotations, records, and data classes.
+-- tl.lua (the real Teal compiler) runs inside the browser via Fengari.
+
+local x: number = 42
+local name: string = "Teal++"
+
+print("x =", x)
+print("name =", name)
+
+local record Point
+    x: number
+    y: number
+end
+
+local p: Point = { x = 3, y = 4 }
+print("p =", p.x, p.y)
+
+local total: number = 0
+for i = 1, 5 do
+    total = total + i
+end
+print("sum 1..5 =", total)
+`;
+
+// =====================================================================
+// Teal tokenizer (JS)
+//
+// Produces HTML. Recognizes, in priority order:
+//   1. long comments    --[[ ... ]] and --[==[ ... ]==]
+//   2. long strings     [[ ... ]] and [==[ ... ]==]
+//   3. short comments   -- ...
+//   4. short strings    "..." and '...'
+//   5. numbers          123, 0x1f, 1.5, 1e3, 0x1p4
+//   6. keywords         and break do else elseif end false for function
+//                       goto if in local nil not or repeat return then
+//                       true until while
+//   7. Teal type words  number string boolean integer any nil (also keyword)
+//                       self, plus record/interface/enum/type/global/local
+//                       when used as declarators (we just color them all)
+//   8. builtin names    print pairs ipairs tostring tonumber require io math
+//                       table string os coroutine
+//   9. identifiers
+//  10. punctuation (everything else)
+// =====================================================================
+
+const TEAL_KEYWORDS = new Set([
+  "and", "break", "do", "else", "elseif", "end", "false", "for",
+  "function", "goto", "if", "in", "local", "nil", "not", "or",
+  "repeat", "return", "then", "true", "until", "while",
+  // Teal-specific declarations & operators
+  "record", "interface", "enum", "type", "global", "as", "is",
+  "macroexp", "macro", "metamethod", "userdata",
+]);
+
+const TEAL_TYPES = new Set([
+  "number", "string", "boolean", "integer", "any", "self",
+  "thread", "void",
+]);
+
+const TEAL_BUILTINS = new Set([
+  "print", "pairs", "ipairs", "next", "tostring", "tonumber",
+  "type", "assert", "error", "pcall", "xpcall", "select",
+  "require", "load", "loadstring", "setmetatable", "getmetatable",
+  "rawget", "rawset", "rawequal", "rawlen", "unpack",
+  "io", "math", "table", "string", "os", "coroutine", "debug",
+  "package", "utf8",
+  "_G", "_VERSION",
+]);
+
+function escHtml(s) {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function span(cls, text) {
+  return `<span class="tok-${cls}">${escHtml(text)}</span>`;
+}
+
+// Scan a long bracket: returns { end, level } or null if not a long bracket at `pos`.
+// `pos` must point at the first '['.
+function scanLongBracket(src, pos) {
+  if (src[pos] !== "[") return null;
+  let level = 0;
+  let i = pos + 1;
+  while (src[i] === "=") { level++; i++; }
+  if (src[i] !== "[") return null;
+  return { contentStart: i + 1, level };
+}
+
+// Find the closing `]` + `=`*level + `]` starting from `from`.
+// Returns index just past the closer, or -1.
+function findLongClose(src, from, level) {
+  const closer = "]" + "=".repeat(level) + "]";
+  const idx = src.indexOf(closer, from);
+  return idx === -1 ? -1 : idx + closer.length;
+}
+
+function highlightTeal(src) {
+  const out = [];
+  let i = 0;
+  const n = src.length;
+
+  while (i < n) {
+    const c = src[i];
+
+    // ---- Long comment: --[=*[ ... ]=*]
+    if (c === "-" && src[i + 1] === "-") {
+      // Check for long comment
+      const lb = scanLongBracket(src, i + 2);
+      if (lb) {
+        const end = findLongClose(src, lb.contentStart, lb.level);
+        if (end === -1) {
+          out.push(span("comment", src.slice(i)));
+          i = n;
+        } else {
+          out.push(span("comment", src.slice(i, end)));
+          i = end;
+        }
+        continue;
+      }
+      // Short comment to end of line
+      let j = i + 2;
+      while (j < n && src[j] !== "\n") j++;
+      out.push(span("comment", src.slice(i, j)));
+      i = j;
+      continue;
+    }
+
+    // ---- Long string: [=*[ ... ]=*]
+    if (c === "[") {
+      const lb = scanLongBracket(src, i);
+      if (lb) {
+        const end = findLongClose(src, lb.contentStart, lb.level);
+        if (end === -1) {
+          out.push(span("string", src.slice(i)));
+          i = n;
+        } else {
+          out.push(span("string", src.slice(i, end)));
+          i = end;
+        }
+        continue;
+      }
+    }
+
+    // ---- Short string: "..." or '...'
+    if (c === '"' || c === "'") {
+      const quote = c;
+      let j = i + 1;
+      while (j < n) {
+        if (src[j] === "\\") { j += 2; continue; }
+        if (src[j] === quote) { j++; break; }
+        if (src[j] === "\n") break; // unterminated; stop at newline
+        j++;
+      }
+      out.push(span("string", src.slice(i, j)));
+      i = j;
+      continue;
+    }
+
+    // ---- Number
+    // Decimal: 123, 1.5, 1e10, .5
+    // Hex:     0x1f, 0x1p4, 0x1.8p3
+    if (/[0-9]/.test(c) || (c === "." && /[0-9]/.test(src[i + 1] || ""))) {
+      let j = i;
+      if (c === "0" && (src[i + 1] === "x" || src[i + 1] === "X")) {
+        j = i + 2;
+        while (j < n && /[0-9a-fA-F.]/.test(src[j])) j++;
+        if (src[j] === "p" || src[j] === "P") {
+          j++;
+          if (src[j] === "+" || src[j] === "-") j++;
+          while (j < n && /[0-9]/.test(src[j])) j++;
+        }
+      } else {
+        while (j < n && /[0-9]/.test(src[j])) j++;
+        if (src[j] === ".") {
+          j++;
+          while (j < n && /[0-9]/.test(src[j])) j++;
+        }
+        if (src[j] === "e" || src[j] === "E") {
+          j++;
+          if (src[j] === "+" || src[j] === "-") j++;
+          while (j < n && /[0-9]/.test(src[j])) j++;
+        }
+      }
+      out.push(span("number", src.slice(i, j)));
+      i = j;
+      continue;
+    }
+
+    // ---- Identifier / keyword / type / builtin
+    if (/[A-Za-z_]/.test(c)) {
+      let j = i + 1;
+      while (j < n && /[A-Za-z0-9_]/.test(src[j])) j++;
+      const word = src.slice(i, j);
+
+      // Lookahead: identifier followed by `(` → likely a function call.
+      let k = j;
+      while (k < n && (src[k] === " " || src[k] === "\t")) k++;
+      const isCall = src[k] === "(";
+
+      if (TEAL_KEYWORDS.has(word)) {
+        out.push(span("keyword", word));
+      } else if (TEAL_TYPES.has(word)) {
+        out.push(span("type", word));
+      } else if (TEAL_BUILTINS.has(word)) {
+        out.push(span("builtin", word));
+      } else if (isCall) {
+        out.push(span("fn", word));
+      } else {
+        out.push(escHtml(word));
+      }
+      i = j;
+      continue;
+    }
+
+    // ---- Punctuation / whitespace / everything else
+    if (/[\s]/.test(c)) {
+      // Preserve newlines verbatim so line numbers match textarea.
+      let j = i;
+      while (j < n && /\s/.test(src[j])) j++;
+      out.push(src.slice(i, j));
+      i = j;
+      continue;
+    }
+
+    // Single-char punctuation.
+    out.push(span("punct", c));
+    i++;
+  }
+
+  // Trailing newline so the highlighted <pre> is as tall as the textarea
+  // (otherwise the last line can be cut off in some browsers).
+  return out.join("") + "\n";
+}
+
+// ---------------------------------------------------------------------
+// UI wiring
+// ---------------------------------------------------------------------
+const source = document.getElementById("source");
+const highlightCode = document.getElementById("highlight-code");
+const highlightPre = document.getElementById("highlight");
+const output = document.getElementById("output");
+const statusEl = document.getElementById("status");
+const runBtn = document.getElementById("run-btn");
+
+source.value = SAMPLE;
+
+function refreshHighlight() {
+  highlightCode.innerHTML = highlightTeal(source.value);
+}
+
+// Keep highlighted <pre> scrolled in sync with the textarea.
+function syncScroll() {
+  highlightPre.scrollTop = source.scrollTop;
+  highlightPre.scrollLeft = source.scrollLeft;
+}
+
+source.addEventListener("input", () => {
+  refreshHighlight();
+  syncScroll();
+});
+source.addEventListener("scroll", syncScroll);
+
+// Tab inserts 4 spaces instead of moving focus (nice for code).
+source.addEventListener("keydown", (e) => {
+  if (e.key === "Tab") {
+    e.preventDefault();
+    const start = source.selectionStart;
+    const end = source.selectionEnd;
+    source.value =
+      source.value.slice(0, start) +
+      "    " +
+      source.value.slice(end);
+    source.selectionStart = source.selectionEnd = start + 4;
+    refreshHighlight();
+  }
+});
+
+refreshHighlight();
+
+// ---------------------------------------------------------------------
+// Teal++ → Teal pre-processor (unchanged)
+// ---------------------------------------------------------------------
+function preprocess(src) {
+  const lines = src.split("\n");
+  const out = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const raw = lines[i];
+    const trimmed = raw.trim();
+
+    const importMatch = trimmed.match(
+      /^import\s+([A-Za-z_][\w.]*)\s+as\s+([A-Za-z_]\w*)\s*$/
+    );
+    if (importMatch) {
+      const [, module, alias] = importMatch;
+      out.push(`local ${alias} = require("${module}")`);
+      i++;
+      continue;
+    }
+
+    const dataMatch = trimmed.match(
+      /^data\s+class\s+([A-Za-z_]\w*)\s*\((.*)\)\s*$/
+    );
+    if (dataMatch) {
+      const [, name, paramsText] = dataMatch;
+      const params = paramsText
+        .split(",")
+        .map((p) => p.trim())
+        .filter(Boolean)
+        .map((p) => {
+          const [n, t] = p.split(":").map((s) => s.trim());
+          return { name: n, type: t };
+        });
+
+      out.push(`local record ${name}`);
+      for (const p of params) {
+        out.push(`    ${p.name}: ${p.type}`);
+      }
+      out.push(`end`);
+      out.push(``);
+      out.push(
+        `function ${name}.new(${params
+          .map((p) => `${p.name}: ${p.type}`)
+          .join(", ")}): ${name}`
+      );
+      out.push(
+        `    local self: ${name} = { ${params
+          .map((p) => `${p.name} = ${p.name}`)
+          .join(", ")} }`
+      );
+      out.push(`    return self`);
+      out.push(`end`);
+      out.push(``);
+
+      if (i + 1 < lines.length && lines[i + 1].trim() === "end") {
+        i += 2;
+      } else {
+        i++;
+      }
+      continue;
+    }
+
+    out.push(raw);
+    i++;
+  }
+
+  return out.join("\n");
+}
+
+// ---------------------------------------------------------------------
+// Load the Teal compiler into Fengari once (unchanged logic).
+// ---------------------------------------------------------------------
+let tlReady = false;
+
+async function initCompiler() {
+  if (tlReady) return;
+
+  fengari.load(`
+    if os.getenv == nil then
+      os.getenv = function(_name) return nil end
+    end
+  `)();
+
+  const res = await fetch("../shared/tl.lua");
+  if (!res.ok) throw new Error("Could not fetch tl.lua: " + res.status);
+  const src = await res.text();
+
+  const loaderSrc =
+    "do\n" +
+    "  local tl_module = (function()\n" +
+    src + "\n" +
+    "  end)()\n" +
+    "  _G.tl = tl_module\n" +
+    "end\n";
+
+  fengari.load(loaderSrc)();
+
+  const check = fengari.load(`
+    if type(tl) ~= "table" then return "tl is not a table: " .. type(tl) end
+    if type(tl.gen) ~= "function" then return "tl.gen is not a function: " .. type(tl.gen) end
+    return "ok"
+  `)();
+
+  if (check !== "ok") {
+    throw new Error("tl.lua loaded but API check failed: " + check);
+  }
+
+  tlReady = true;
+}
+
+// ---------------------------------------------------------------------
+// Run: preprocess → tl.gen → load Lua → execute → read global buffer
+// ---------------------------------------------------------------------
+async function run() {
+  output.textContent = "";
+  output.className = "output-success";
+  statusEl.textContent = "Running…";
+  statusEl.className = "status";
+  runBtn.disabled = true;
+
+  try {
+    if (!tlReady) await initCompiler();
+
+    const teal = preprocess(source.value);
+    const safe = teal.replace(/\]==\]/g, "] = = ]");
+
+    const compileCall = `
+      __tpp_out = ""
+      local real_print = print
+      print = function(...)
+        local parts = {}
+        for i = 1, select("#", ...) do
+          parts[#parts + 1] = tostring((select(i, ...)))
+        end
+        __tpp_out = __tpp_out .. table.concat(parts, " ") .. "\\n"
+      end
+
+      local src = [==[
+${safe}
+]==]
+
+      local ok, lua, result = pcall(tl.gen, src, nil, nil, "tl")
+
+      if not ok then
+        __tpp_out = "__TPP_ERROR__tl.gen raised: " .. tostring(lua)
+        print = real_print
+        return
+      end
+
+      if not lua then
+        local msgs = {}
+        local function add_errs(list)
+          for _, e in ipairs(list or {}) do
+            msgs[#msgs + 1] = string.format(
+              "%s:%d:%d: %s",
+              e.filename or "?", e.y or 0, e.x or 0, e.msg or "unknown error")
+          end
+        end
+        add_errs(result and result.syntax_errors)
+        add_errs(result and result.type_errors)
+        if #msgs == 0 then msgs[1] = "compilation failed (no diagnostic)" end
+        __tpp_out = "__TPP_ERROR__" .. table.concat(msgs, "\\n")
+        print = real_print
+        return
+      end
+
+      local chunk, load_err = load(lua, "=main.lua", "t")
+      if not chunk then
+        __tpp_out = "__TPP_ERROR__" .. tostring(load_err)
+        print = real_print
+        return
+      end
+
+      local run_ok, run_err = pcall(chunk)
+      if not run_ok then
+        __tpp_out = "__TPP_ERROR__" .. tostring(run_err)
+      end
+
+      print = real_print
+    `;
+
+    fengari.load(compileCall)();
+
+    const captured = fengari.load("return __tpp_out")() || "";
+
+    if (captured.startsWith("__TPP_ERROR__")) {
+      output.textContent = captured.slice("__TPP_ERROR__".length);
+      output.className = "output-error";
+      statusEl.textContent = "Error";
+      statusEl.className = "status err";
+    } else {
+      output.textContent = captured || "(no output)";
+      output.className = "output-success";
+      statusEl.textContent = "OK";
+      statusEl.className = "status ok";
+    }
+  } catch (e) {
+    output.textContent = String(e);
+    output.className = "output-error";
+    statusEl.textContent = "Error";
+    statusEl.className = "status err";
+  } finally {
+    runBtn.disabled = false;
+  }
+}
+
+runBtn.addEventListener("click", run);
+
+source.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+    e.preventDefault();
+    run();
+  }
+});
+
+// Boot
+statusEl.textContent = "Loading compiler…";
+initCompiler()
+  .then(() => {
+    statusEl.textContent = "Ready — Ctrl+Enter to run";
+    statusEl.className = "status ok";
+    runBtn.disabled = false;
+  })
+  .catch((e) => {
+    statusEl.textContent = "Failed to load tl.lua: " + e.message;
+    statusEl.className = "status err";
+  });
+</script>
+</body>
+</html>

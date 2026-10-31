@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Teal++ Sandbox</title>
+<meta name="description" content="Try Teal++ in your browser — no installs. Run pure-Lua Teal++ snippets or play compiled GameKit games.">
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --panel-hover: #1c2128;
+    --border: #30363d;
+    --border-hover: #58a6ff;
+    --text: #c9d1d9;
+    --text-muted: #8b949e;
+    --accent: #58a6ff;
+    --accent-dim: #1f6feb;
+    --green: #3fb950;
+    --purple: #bc8cff;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 16px; }
+  body {
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    line-height: 1.6;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 3rem 1.5rem;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(48, 54, 61, 0.35) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(48, 54, 61, 0.35) 1px, transparent 1px);
+    background-size: 40px 40px;
+    z-index: -1;
+    pointer-events: none;
+  }
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(circle at 50% 0%, rgba(88, 166, 255, 0.08), transparent 60%);
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  /* Header */
+  header {
+    max-width: 960px;
+    width: 100%;
+    text-align: center;
+    margin-bottom: 3rem;
+  }
+
+  .logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+  }
+
+  .logo-mark {
+    width: 44px;
+    height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--accent-dim), var(--purple));
+    border-radius: 10px;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 1.15rem;
+    color: #fff;
+    letter-spacing: -0.5px;
+    box-shadow: 0 0 24px rgba(88, 166, 255, 0.25);
+  }
+
+  h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: #f0f6fc;
+    line-height: 1.15;
+    margin-bottom: 0.75rem;
+  }
+  h1 .gradient {
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .tagline {
+    font-size: 1.1rem;
+    color: var(--text-muted);
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  /* Cards */
+  .cards {
+    max-width: 960px;
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 3rem;
+  }
+
+  .card {
+    display: flex;
+    flex-direction: column;
+    padding: 2rem;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card:hover {
+    background: var(--panel-hover);
+    border-color: var(--border-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(88, 166, 255, 0.12);
+  }
+
+  .card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+
+  .card:hover::before {
+    opacity: 1;
+  }
+
+  .card-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    margin-bottom: 1.25rem;
+    font-size: 1.4rem;
+  }
+
+  .card-icon.try {
+    background: rgba(63, 185, 80, 0.12);
+    color: var(--green);
+  }
+
+  .card-icon.play {
+    background: rgba(188, 140, 255, 0.12);
+    color: var(--purple);
+  }
+
+  .card-icon.docs {
+    background: rgba(88, 166, 255, 0.12);
+    color: var(--accent);
+  }
+
+  .card h2 {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #f0f6fc;
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.01em;
+  }
+
+  .card-desc {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    margin-bottom: 1.25rem;
+    flex-grow: 1;
+  }
+
+  .card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .pill {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    font-size: 0.75rem;
+    font-family: var(--font-mono);
+    background: rgba(88, 166, 255, 0.08);
+    border: 1px solid rgba(88, 166, 255, 0.2);
+    border-radius: 999px;
+    color: var(--accent);
+  }
+
+  .card-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--accent);
+    transition: gap 0.15s ease;
+  }
+
+  .card:hover .card-cta {
+    gap: 0.75rem;
+  }
+
+  /* Code sample */
+  .sample {
+    max-width: 720px;
+    width: 100%;
+    margin-bottom: 3rem;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    overflow: hidden;
+  }
+
+  .sample-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.65rem 1rem;
+    border-bottom: 1px solid var(--border);
+    background: #0d1117;
+  }
+
+  .sample-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+
+  .sample-dot.red    { background: #ff5f56; }
+  .sample-dot.yellow { background: #ffbd2e; }
+  .sample-dot.green  { background: #27c93f; }
+
+  .sample-title {
+    margin-left: 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .sample pre {
+    padding: 1.25rem 1.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    line-height: 1.65;
+    overflow-x: auto;
+    color: var(--text);
+  }
+
+  .sample .kw  { color: #ff7b72; }
+  .sample .fn  { color: #d2a8ff; }
+  .sample .str { color: #a5d6ff; }
+  .sample .num { color: #79c0ff; }
+  .sample .cm  { color: #8b949e; font-style: italic; }
+
+  /* Footer */
+  footer {
+    max-width: 960px;
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1.5rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+
+  footer a {
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: color 0.15s ease;
+  }
+
+  footer a:hover {
+    color: var(--accent);
+  }
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    body { padding: 2rem 1rem; }
+    h1 { font-size: 2rem; }
+    .tagline { font-size: 1rem; }
+    .cards { grid-template-columns: 1fr; }
+    .card { padding: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-mark">T++</div>
+  </div>
+  <h1>Try <span class="gradient">Teal++</span> in your browser</h1>
+  <p class="tagline">
+    No installs, no setup. Run pure-Lua Teal++ snippets or play compiled GameKit games — right here.
+  </p>
+</header>
+
+<div class="cards">
+  <a class="card" href="try/">
+    <div class="card-icon try">λ</div>
+    <h2>Try Teal++</h2>
+    <p class="card-desc">
+      Edit Teal++ code in your browser and see it compile and run instantly. Text output only — no graphics.
+    </p>
+    <div class="card-meta">
+      <span class="pill">Fengari</span>
+      <span class="pill">text output</span>
+      <span class="pill">live editing</span>
+    </div>
+    <span class="card-cta">Open sandbox →</span>
+  </a>
+
+  <a class="card" href="play/">
+    <div class="card-icon play">▶</div>
+    <h2>Play Teal++ Games</h2>
+    <p class="card-desc">
+      Demo games written in Teal++ and compiled with GameKit. Full graphics, sound, and input — powered by love.js.
+    </p>
+    <div class="card-meta">
+      <span class="pill">love.js</span>
+      <span class="pill">GameKit</span>
+      <span class="pill">playable</span>
+    </div>
+    <span class="card-cta">Browse demos →</span>
+  </a>
+
+  <a class="card" href="docs.html">
+    <div class="card-icon docs">📖</div>
+    <h2>Read the Docs</h2>
+    <p class="card-desc">
+      Language reference, GameKit API, packaging guide, and everything else you need to build with Teal++.
+    </p>
+    <div class="card-meta">
+      <span class="pill">language</span>
+      <span class="pill">GameKit</span>
+      <span class="pill">packaging</span>
+    </div>
+    <span class="card-cta">Browse docs →</span>
+  </a>
+</div>
+
+<div class="sample">
+  <div class="sample-header">
+    <span class="sample-dot red"></span>
+    <span class="sample-dot yellow"></span>
+    <span class="sample-dot green"></span>
+    <span class="sample-title">hello.tpp</span>
+  </div>
+  <pre><span class="kw">import</span> gamekit <span class="kw">as</span> GameKit
+
+<span class="kw">data</span> <span class="kw">class</span> Point(x: <span class="kw">number</span>, y: <span class="kw">number</span>)
+<span class="kw">end</span>
+
+<span class="kw">local</span> player = Point.<span class="fn">new</span>(<span class="num">100</span>, <span class="num">100</span>)
+
+GameKit.<span class="fn">app</span>({
+    title = <span class="str">"Hello"</span>,
+    width = <span class="num">800</span>,
+    height = <span class="num">600</span>,
+})
+
+<span class="kw">function</span> <span class="fn">draw</span>()
+    GameKit.graphics.<span class="fn">circle</span>(<span class="str">"fill"</span>, player.x, player.y, <span class="num">20</span>, <span class="str">"#22d3ee"</span>)
+<span class="kw">end</span>
+</pre>
+</div>
+
+<footer>
+  <a href="https://github.com/Sheldevv/tealpp" target="_blank" rel="noopener">GitHub</a>
+  <a href="https://github.com/Sheldevv/tealpp/releases" target="_blank" rel="noopener">Releases</a>
+  <a href="docs.html">Docs</a>
+  <a href="https://teal-language.org" target="_blank" rel="noopener">Teal docs</a>
+  <a href="https://love2d.org" target="_blank" rel="noopener">LÖVE</a>
+</footer>
+
+</body>
+</html>
